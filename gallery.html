@@ -215,7 +215,7 @@
     async function loadGallery() {
       try {
         console.log('Loading gallery...');
-        const res = await fetch('/api/list');
+        const res = await fetch('/api/list?t=' + new Date().getTime());
         if (!res.ok) {
           throw new Error(`Failed to fetch list: ${res.statusText}`);
         }
