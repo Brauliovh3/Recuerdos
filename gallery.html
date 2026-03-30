@@ -154,11 +154,13 @@
       e.preventDefault();
       setDragging(false);
       queue = [...queue, ...Array.from(e.dataTransfer.files)];
+      console.log('Files dropped, queue:', queue);
       renderQueueHint();
     });
 
     fileInput.addEventListener('change', (e) => {
       queue = [...queue, ...Array.from(e.target.files)];
+      console.log('Files selected, queue:', queue);
       renderQueueHint();
     });
 
@@ -211,71 +213,82 @@
     }
 
     async function loadGallery() {
-      const res = await fetch('/api/list');
-      const data = await res.json();
-      
-      gallery.querySelectorAll('.tile:not(#dropzone)').forEach(t => t.remove());
-
-      if (!data.blobs?.length) {
-        empty.hidden = false;
-        return;
-      }
-      
-      empty.hidden = true;
-
-      data.blobs.forEach((blob) => {
-        const tile = document.createElement('div');
-        tile.className = 'tile';
-
-        let media;
-        if (blob.contentType.startsWith('image/')) {
-          media = document.createElement('img');
-          media.src = `${blob.url}?w=900&q=80`;
-        } else if (blob.contentType.startsWith('video/')) {
-          media = document.createElement('video');
-          media.src = blob.url;
-          media.controls = true;
-          media.playsInline = true;
+      try {
+        console.log('Loading gallery...');
+        const res = await fetch('/api/list');
+        if (!res.ok) {
+          throw new Error(`Failed to fetch list: ${res.statusText}`);
         }
+        const data = await res.json();
+        console.log('Gallery data received:', data);
+      
+        gallery.querySelectorAll('.tile:not(#dropzone)').forEach(t => t.remove());
+
+        if (!data.blobs?.length) {
+          console.log('No blobs found.');
+          empty.hidden = false;
+          return;
+        }
+      
+        empty.hidden = true;
+
+        data.blobs.forEach((blob) => {
+          const tile = document.createElement('div');
+          tile.className = 'tile';
+
+          let media;
+          if (blob.contentType.startsWith('image/')) {
+            media = document.createElement('img');
+            media.src = `${blob.url}?w=900&q=80`;
+          } else if (blob.contentType.startsWith('video/')) {
+            media = document.createElement('video');
+            media.src = blob.url;
+            media.controls = true;
+            media.playsInline = true;
+          }
         
-        if (media) {
-          media.alt = blob.pathname;
-          tile.appendChild(media);
-        }
+          if (media) {
+            media.alt = blob.pathname;
+            tile.appendChild(media);
+          }
 
-        const meta = document.createElement('div');
-        meta.className = 'meta';
+          const meta = document.createElement('div');
+          meta.className = 'meta';
 
-        const metaTop = document.createElement('div');
-        metaTop.className = 'meta-top';
+          const metaTop = document.createElement('div');
+          metaTop.className = 'meta-top';
 
-        const note = document.createElement('span');
-        note.className = 'note';
-        note.textContent = blob.pathname;
-        note.title = blob.pathname;
+          const note = document.createElement('span');
+          note.className = 'note';
+          note.textContent = blob.pathname;
+          note.title = blob.pathname;
 
-        const size = document.createElement('span');
-        size.className = 'size';
-        size.textContent = (blob.size / 1024 / 1024).toFixed(1) + ' MB';
+          const size = document.createElement('span');
+          size.className = 'size';
+          size.textContent = (blob.size / 1024 / 1024).toFixed(1) + ' MB';
 
-        const date = document.createElement('span');
-        date.className = 'date';
-        date.textContent = new Date(blob.uploadedAt).toLocaleDateString();
+          const date = document.createElement('span');
+          date.className = 'date';
+          date.textContent = new Date(blob.uploadedAt).toLocaleDateString();
 
-        metaTop.appendChild(note);
-        metaTop.appendChild(date);
-        metaTop.appendChild(size);
+          metaTop.appendChild(note);
+          metaTop.appendChild(date);
+          metaTop.appendChild(size);
 
-        const downloadLink = document.createElement('a');
-        downloadLink.href = blob.url;
-        downloadLink.setAttribute('download', '');
-        downloadLink.textContent = 'Descargar';
+          const downloadLink = document.createElement('a');
+          downloadLink.href = blob.url;
+          downloadLink.setAttribute('download', '');
+          downloadLink.textContent = 'Descargar';
 
-        meta.appendChild(metaTop);
-        meta.appendChild(downloadLink);
-        tile.appendChild(meta);
-        gallery.appendChild(tile);
-      });
+          meta.appendChild(metaTop);
+          meta.appendChild(downloadLink);
+          tile.appendChild(meta);
+          gallery.appendChild(tile);
+        });
+      } catch (error) {
+        console.error('Error loading gallery:', error);
+        alert('Error al cargar la galería. Revisa la consola para más detalles.');
+      }
     }
 
     copyLink.addEventListener('click', async () => {
