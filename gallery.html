@@ -10,16 +10,15 @@
 </head>
 <body>
   <header>
-    <h2>Galería (v3)</h2>
+    <h2>Galería (v4)</h2>
   </header>
-  <p>Página de diagnóstico.</p>
+  <p>Prueba final de diagnóstico.</p>
 
-  <script type="module">
-    // This is a diagnostic script.
-    // It draws a red border to confirm that JavaScript is executing.
+  <script>
+    // Test without type="module"
     try {
-      document.body.style.border = '10px solid red';
-      alert('Script de diagnóstico (v3) ejecutado. Deberías ver un borde rojo.');
+      document.body.style.border = '10px solid green';
+      alert('Script de diagnóstico (v4) ejecutado. Deberías ver un borde verde.');
     } catch (e) {
       alert('Error en el script de diagnóstico: ' + e.message);
     }
