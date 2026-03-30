@@ -1,201 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galería - Álbum del cole</title>
+  <style>
+    body { font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Galería (v3)</h2>
+  </header>
+  <p>Página de diagnóstico.</p>
+
   <script type="module">
-    // --- Constants ---
-    const CATBOX_API = 'https://catbox.moe/user/api.php';
-    const API_GET_GALLERY = './api/get-gallery.js';
-    const API_ADD_ENTRY = './api/add-entry.js';
-
-    // --- Element References ---
-    const gallery = document.getElementById('gallery');
-    const empty = document.getElementById('empty');
-    const copyLink = document.getElementById('copyLink');
-    const openUploadModalBtn = document.getElementById('openUploadModal');
-    const uploadModal = document.getElementById('uploadModal');
-    const closeUploadModalBtn = document.getElementById('closeUploadModal');
-    
-    // Modal elements
-    const dz = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const progressEl = document.getElementById('progress');
-    const bar = progressEl.querySelector('div');
-    const queueStatus = document.getElementById('queue-status');
-
-    let queue = [];
-
-    // --- Main Initializer ---
-    function main() {
-      try {
-        setupEventListeners();
-        loadGallery();
-      } catch (error) {
-        console.error("Error during script initialization:", error);
-        alert("Ocurrió un error crítico al cargar la página. Por favor, recarga.");
-      }
+    // This is a diagnostic script.
+    // It draws a red border to confirm that JavaScript is executing.
+    try {
+      document.body.style.border = '10px solid red';
+      alert('Script de diagnóstico (v3) ejecutado. Deberías ver un borde rojo.');
+    } catch (e) {
+      alert('Error en el script de diagnóstico: ' + e.message);
     }
-
-    // --- UI & Event Listeners ---
-    function setupEventListeners() {
-      openUploadModalBtn.addEventListener('click', () => uploadModal.classList.add('visible'));
-      closeUploadModalBtn.addEventListener('click', () => uploadModal.classList.remove('visible'));
-      uploadModal.addEventListener('click', (e) => {
-        if (e.target === uploadModal) {
-          uploadModal.classList.remove('visible');
-        }
-      });
-
-      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragging'); });
-      dz.addEventListener('dragleave', () => dz.classList.remove('dragging'));
-      dz.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dz.classList.remove('dragging');
-        addToQueue(Array.from(e.dataTransfer.files));
-      });
-
-      fileInput.addEventListener('change', (e) => addToQueue(Array.from(e.target.files)));
-      uploadBtn.addEventListener('click', () => uploadAll());
-      copyLink.addEventListener('click', copyPublicLink);
-    }
-
-    function addToQueue(files) {
-      queue.push(...files);
-      renderQueueHint();
-    }
-
-    function renderQueueHint() {
-      queueStatus.textContent = queue.length ? `${queue.length} archivo(s) en cola` : '';
-      uploadBtn.style.display = queue.length ? 'inline-flex' : 'none';
-    }
-
-    async function copyPublicLink() {
-      await navigator.clipboard.writeText(location.href.replace(location.hash, ''));
-      copyLink.textContent = '¡Copiado!';
-      setTimeout(() => copyLink.textContent = 'Copiar enlace público', 1200);
-    }
-
-    // --- Core Logic ---
-
-    async function uploadToCatbox(file) {
-      const formData = new FormData();
-      formData.append('reqtype', 'fileupload');
-      formData.append('fileToUpload', file);
-
-      const response = await fetch(CATBOX_API, { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`Catbox upload failed: ${response.statusText}`);
-      
-      const url = await response.text();
-      if (!url.startsWith('https://')) throw new Error(`Invalid response from Catbox: ${url}`);
-      return url;
-    }
-
-    async function addGalleryEntry(entry) {
-      const response = await fetch(API_ADD_ENTRY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry),
-      });
-      if (!response.ok) throw new Error(`Failed to add gallery entry: ${await response.text()}`);
-      return await response.json();
-    }
-
-    async function uploadAll() {
-      if (!queue.length) return;
-      
-      progressEl.hidden = false;
-      bar.style.width = '0%';
-      const totalFiles = queue.length;
-
-      for (let i = 0; i < totalFiles; i++) {
-        const file = queue[i];
-        try {
-          const catboxUrl = await uploadToCatbox(file);
-          await addGalleryEntry({
-            url: catboxUrl,
-            pathname: file.name,
-            contentType: file.type,
-            size: file.size,
-          });
-          bar.style.width = `${((i + 1) / totalFiles) * 100}%`;
-        } catch (error) {
-          console.error(`Failed to upload ${file.name}:`, error);
-          alert(`Error subiendo "${file.name}": ${error.message}`);
-          break; // Stop on first error
-        }
-      }
-
-      queue = [];
-      renderQueueHint();
-      setTimeout(() => { 
-        progressEl.hidden = true; 
-        bar.style.width = '0%';
-        uploadModal.classList.remove('visible');
-      }, 800);
-
-      await loadGallery();
-    }
-
-    async function loadGallery() {
-      try {
-        const response = await fetch(API_GET_GALLERY);
-        if (!response.ok) throw new Error('Could not fetch gallery.');
-        const entries = await response.json();
-
-        gallery.innerHTML = ''; // Clear existing gallery items
-        empty.hidden = entries.length > 0;
-
-        entries.forEach(entry => gallery.appendChild(createTile(entry)));
-      } catch (error) {
-        console.error('Error loading gallery:', error);
-        alert('No se pudo cargar la galería. Comprueba la consola para más detalles.');
-      }
-    }
-    
-    function createTile(entry) {
-        const tile = document.createElement('div');
-        tile.className = 'tile';
-        let media;
-        if (entry.contentType.startsWith('image/')) {
-            media = document.createElement('img');
-            media.src = entry.url;
-        } else if (entry.contentType.startsWith('video/')) {
-            media = document.createElement('video');
-            media.src = entry.url;
-            media.controls = true;
-            media.playsInline = true;
-        }
-        
-        if (media) {
-            media.alt = entry.pathname;
-            tile.appendChild(media);
-        }
-
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        const metaTop = document.createElement('div');
-        metaTop.className = 'meta-top';
-        const note = document.createElement('span');
-        note.className = 'note';
-        note.textContent = entry.pathname;
-        note.title = entry.pathname;
-        const size = document.createElement('span');
-        size.className = 'size';
-        size.textContent = (entry.size / 1024 / 1024).toFixed(1) + ' MB';
-        const date = document.createElement('span');
-        date.className = 'date';
-        date.textContent = new Date(entry.uploadedAt).toLocaleDateString();
-        metaTop.appendChild(note);
-        metaTop.appendChild(date);
-        metaTop.appendChild(size);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = entry.url;
-        downloadLink.target = '_blank';
-        downloadLink.rel = 'noopener noreferrer';
-        downloadLink.textContent = 'Descargar';
-        meta.appendChild(metaTop);
-        meta.appendChild(downloadLink);
-        tile.appendChild(meta);
-        return tile;
-    }
-
-    // --- Start the application ---
-    main();
   </script>
+</body>
+</html>
