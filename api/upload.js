@@ -14,7 +14,7 @@ export default async function handler(request) {
       request,
       onBeforeGenerateToken: async (pathname /* , clientPayload */) => {
         return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
+          allowedContentTypes: ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"],
           addRandomSuffix: true,
           access: "public",
         };

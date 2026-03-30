@@ -45,7 +45,7 @@
       min-height: 240px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.06);
     }
-    .tile img { width: 100%; height: 190px; object-fit: cover; background: #ddd; }
+    .tile img, .tile video { width: 100%; height: 190px; object-fit: cover; background: #ddd; }
     .tile .meta { padding: 12px 14px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
     .meta .meta-top {
       display: flex;
@@ -115,12 +115,12 @@
     <div id="gallery" class="grid">
       <div class="tile dropzone" id="dropzone">
         <div>
-          <strong>Añadir fotos</strong>
-          <p>JPG, PNG, WEBP</p>
+          <strong>Añadir archivos</strong>
+          <p>JPG, PNG, MP4, etc.</p>
         </div>
         <div class="actions">
           <label for="fileInput" class="ghost">Elegir</label>
-          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple>
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime" multiple>
           <button class="primary" id="uploadBtn" style="display: none;">Subir</button>
         </div>
         <div class="progress" id="progress" hidden><div></div></div>
@@ -226,10 +226,23 @@
       data.blobs.forEach((blob) => {
         const tile = document.createElement('div');
         tile.className = 'tile';
-        const img = document.createElement('img');
-        img.src = `${blob.url}?w=900&q=80`;
-        img.alt = blob.pathname;
-        tile.appendChild(img);
+
+        let media;
+        if (blob.contentType.startsWith('image/')) {
+          media = document.createElement('img');
+          media.src = `${blob.url}?w=900&q=80`;
+        } else if (blob.contentType.startsWith('video/')) {
+          media = document.createElement('video');
+          media.src = blob.url;
+          media.controls = true;
+          media.playsInline = true;
+        }
+        
+        if (media) {
+          media.alt = blob.pathname;
+          tile.appendChild(media);
+        }
+
         const meta = document.createElement('div');
         meta.className = 'meta';
 
