@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galería - Álbum del cole</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Playfair+Display:wght@600&display=swap');
+    :root {
+      color-scheme: light;
+      --ink: #f6f6f6;
+      --accent: rgba(255,255,255,0.82);
+      --muted: rgba(255,255,255,0.8);
+      --panel: #ffffff;
+      --shadow: 0 26px 60px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #faf9f7;
+      font-family: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #0f0f0f;
+    }
+    .section {
+      background: #faf9f7;
+      padding: 32px clamp(16px, 5vw, 70px) 50px;
+    }
+    .section header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section h2 { margin: 0; font-size: clamp(22px, 3vw, 32px); color: #181818; }
+    .section p { margin: 0; color: #6b6b6b; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 22px; }
+    .tile {
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fdfdfd;
+      border: 1px solid #ececec;
+      display: flex;
+      flex-direction: column;
+      min-height: 240px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+    .tile img { width: 100%; height: 190px; object-fit: cover; background: #ddd; }
+    .tile .meta { padding: 12px 14px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+    .meta .meta-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .meta .note {
+      font-size: 13px;
+      color: #333;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-grow: 1;
+    }
+    .meta .date {
+      color: #777;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .meta .size { color: #777; font-size: 13px; flex-shrink: 0; }
+    .meta a { text-decoration: none; color: #d14322; font-weight: 600; font-size: 13px; text-align: center; background: #f1f1f1; padding: 8px; border-radius: 8px; transition: background .2s, color .2s; }
+    .meta a:hover {
+      background: #e7e7e7;
+    }
+    .dropzone {
+      margin: 22px 0 10px;
+      padding: 24px;
+      border: 2px dashed #dcdcdc;
+      border-radius: 14px;
+      background: #fff;
+      text-align: center;
+      transition: border-color .2s, background .2s;
+    }
+    .dropzone.dragging { border-color: #d14322; background: #fff6f1; }
+    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+    button, .ghost {
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: transform .12s ease, box-shadow .12s ease, background .2s;
+    }
+    button.primary { background: #d14322; color: #fff; box-shadow: 0 10px 22px rgba(209,67,34,0.25); }
+    .ghost { background: #f1f1f1; color: #1f1f1f; }
+    .progress { height: 6px; background: #ececec; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+    .progress div { height: 100%; width: 0; background: linear-gradient(90deg, #d14322, #ff8e5a); transition: width .2s ease; }
+    .empty { text-align: center; color: #7b7b7b; padding: 30px 0 10px; }
+    input[type=file] { display: none; }
+    @media (max-width: 720px) {
+      .section header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="section" id="galeria">
+    <header>
+      <div>
+        <h2>Galería</h2>
+        <p>Sube tus fotos o descarga las de tus compañeros.</p>
+      </div>
+      <button class="ghost" id="copyLink">Copiar enlace público</button>
+    </header>
+
+    <div id="gallery" class="grid">
+      <div class="tile dropzone" id="dropzone">
+        <div>
+          <strong>Añadir fotos</strong>
+          <p>JPG, PNG, WEBP</p>
+        </div>
+        <div class="actions">
+          <label for="fileInput" class="ghost">Elegir</label>
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple>
+          <button class="primary" id="uploadBtn" style="display: none;">Subir</button>
+        </div>
+        <div class="progress" id="progress" hidden><div></div></div>
+      </div>
+    </div>
+
+    <div id="empty" class="empty" hidden>No hay fotos todavía.</div>
+  </div>
+
+  <script type="module">
+    import { upload } from 'https://esm.sh/@vercel/blob@3/client';
+
+    const dz = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progress = document.getElementById('progress');
+    const bar = progress.querySelector('div');
+    const gallery = document.getElementById('gallery');
+    const empty = document.getElementById('empty');
+    const copyLink = document.getElementById('copyLink');
+
+    let queue = [];
+
+    function setDragging(state) {
+      dz.classList.toggle('dragging', state);
+    }
+
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); setDragging(true); });
+    dz.addEventListener('dragleave', () => setDragging(false));
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      setDragging(false);
+      queue = [...queue, ...Array.from(e.dataTransfer.files)];
+      renderQueueHint();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      queue = [...queue, ...Array.from(e.target.files)];
+      renderQueueHint();
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!queue.length) {
+        fileInput.click();
+        return;
+      }
+      await uploadAll();
+    });
+
+    async function uploadAll() {
+      progress.hidden = false;
+      bar.style.width = '0%';
+      for (let i = 0; i < queue.length; i++) {
+        const file = queue[i];
+        const pctStart = (i / queue.length) * 100;
+        const pctEnd = ((i + 1) / queue.length) * 100;
+        await uploadOne(file, pctStart, pctEnd);
+      }
+      queue = [];
+      renderQueueHint();
+      bar.style.width = '100%';
+      setTimeout(() => { progress.hidden = true; bar.style.width = '0%'; }, 600);
+      await loadGallery();
+    }
+
+    async function uploadOne(file, pctStart, pctEnd) {
+      const step = pctEnd - pctStart;
+      try {
+        await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload',
+          onUploadProgress: ({ loaded, total }) => {
+            const localPct = loaded / total;
+            bar.style.width = `${pctStart + localPct * step}%`;
+          }
+        });
+      } catch (err) {
+        alert('Error subiendo "' + file.name + '"');
+        console.error(err);
+      }
+    }
+
+    function renderQueueHint() {
+      dz.querySelector('strong').textContent = queue.length
+        ? `${queue.length} lista(s)`
+        : 'Añadir fotos';
+      uploadBtn.style.display = queue.length ? 'inline-flex' : 'none';
+    }
+
+    async function loadGallery() {
+      const res = await fetch('/api/list');
+      const data = await res.json();
+      
+      gallery.querySelectorAll('.tile:not(#dropzone)').forEach(t => t.remove());
+
+      if (!data.blobs?.length) {
+        empty.hidden = false;
+        return;
+      }
+      
+      empty.hidden = true;
+
+      data.blobs.forEach((blob) => {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        const img = document.createElement('img');
+        img.src = `${blob.url}?w=900&q=80`;
+        img.alt = blob.pathname;
+        tile.appendChild(img);
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+
+        const metaTop = document.createElement('div');
+        metaTop.className = 'meta-top';
+
+        const note = document.createElement('span');
+        note.className = 'note';
+        note.textContent = blob.pathname;
+        note.title = blob.pathname;
+
+        const size = document.createElement('span');
+        size.className = 'size';
+        size.textContent = (blob.size / 1024 / 1024).toFixed(1) + ' MB';
+
+        const date = document.createElement('span');
+        date.className = 'date';
+        date.textContent = new Date(blob.uploadedAt).toLocaleDateString();
+
+        metaTop.appendChild(note);
+        metaTop.appendChild(date);
+        metaTop.appendChild(size);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = blob.url;
+        downloadLink.setAttribute('download', '');
+        downloadLink.textContent = 'Descargar';
+
+        meta.appendChild(metaTop);
+        meta.appendChild(downloadLink);
+        tile.appendChild(meta);
+        gallery.appendChild(tile);
+      });
+    }
+
+    copyLink.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(location.href);
+      copyLink.textContent = '¡Copiado!';
+      setTimeout(() => copyLink.textContent = 'Copiar enlace público', 1200);
+    });
+
+    loadGallery();
+  </script>
+</body>
+</html>
