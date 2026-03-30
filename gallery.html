@@ -5,23 +5,265 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Galería - Álbum del cole</title>
   <style>
-    body { font-family: sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Playfair+Display:wght@600&display=swap');
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #faf9f7; font-family: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif; color: #0f0f0f; }
+    .section { background: #faf9f7; padding: 32px clamp(16px, 5vw, 70px) 50px; }
+    .section header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .section h2 { margin: 0; font-size: clamp(22px, 3vw, 32px); color: #181818; }
+    .section p { margin: 0; color: #6b6b6b; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 22px; }
+    .tile { border-radius: 14px; overflow: hidden; background: #fdfdfd; border: 1px solid #ececec; display: flex; flex-direction: column; min-height: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+    .tile img, .tile video { width: 100%; height: 190px; object-fit: cover; background: #ddd; }
+    .tile .meta { padding: 12px 14px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+    .meta .meta-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .meta .note { font-size: 13px; color: #333; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
+    .meta .date, .meta .size { color: #777; font-size: 13px; flex-shrink: 0; }
+    .meta a { text-decoration: none; color: #d14322; font-weight: 600; font-size: 13px; text-align: center; background: #f1f1f1; padding: 8px; border-radius: 8px; transition: background .2s, color .2s; }
+    .meta a:hover { background: #e7e7e7; }
+    .empty { text-align: center; color: #7b7b7b; padding: 30px 0 10px; }
+    .fab { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; background-color: #d14322; color: white; border-radius: 50%; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 32px; line-height: 60px; text-align: center; cursor: pointer; z-index: 1000; transition: transform .2s ease-out; }
+    .fab:hover { transform: scale(1.05); }
+    .upload-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1001; opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+    .upload-modal.visible { opacity: 1; pointer-events: auto; }
+    .upload-modal__content { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transform: scale(0.95); transition: transform .3s ease; }
+    .upload-modal.visible .upload-modal__content { transform: scale(1); }
+    .dropzone { padding: 24px; border: 2px dashed #dcdcdc; border-radius: 14px; background: #fafafa; text-align: center; transition: border-color .2s, background .2s; }
+    .dropzone.dragging { border-color: #d14322; background: #fff6f1; }
+    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+    button, .ghost { border-radius: 12px; padding: 11px 16px; font-size: 14px; cursor: pointer; border: none; transition: transform .12s ease, box-shadow .12s ease, background .2s; }
+    button.primary { background: #d14322; color: #fff; box-shadow: 0 10px 22px rgba(209,67,34,0.25); }
+    .ghost { background: #f1f1f1; color: #1f1f1f; }
+    .progress { height: 6px; background: #ececec; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+    .progress div { height: 100%; width: 0; background: linear-gradient(90deg, #d14322, #ff8e5a); transition: width .2s ease; }
+    input[type=file] { display: none; }
+    .upload-modal__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .upload-modal__header h3 { margin: 0; font-size: 20px; }
+    .close-btn { font-size: 24px; background: none; border: none; cursor: pointer; color: #888; }
   </style>
 </head>
 <body>
-  <header>
-    <h2>Galería (v4)</h2>
-  </header>
-  <p>Prueba final de diagnóstico.</p>
+  <div class="section" id="galeria">
+    <header>
+      <div>
+        <h2>Galería</h2>
+        <p>Sube tus fotos o descarga las de tus compañeros.</p>
+      </div>
+      <button class="ghost" id="copyLink">Copiar enlace público</button>
+    </header>
+    <div id="gallery" class="grid"></div>
+    <div id="empty" class="empty" hidden>No hay fotos todavía.</div>
+  </div>
+  <button class="fab" id="openUploadModal">+</button>
+  <div class="upload-modal" id="uploadModal">
+    <div class="upload-modal__content">
+      <div class="upload-modal__header">
+        <h3>Subir archivos</h3>
+        <button class="close-btn" id="closeUploadModal">&times;</button>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div>
+          <strong>Añadir archivos</strong>
+          <p>Arrastra o selecciona tus fotos y videos</p>
+        </div>
+        <div class="actions">
+          <label for="fileInput" class="ghost">Elegir archivos</label>
+          <input type="file" id="fileInput" accept="image/*,video/*" multiple>
+        </div>
+        <div id="queue-status" style="margin-top: 10px; color: #555;"></div>
+        <div class="progress" id="progress" hidden><div></div></div>
+        <button class="primary" id="uploadBtn" style="margin-top: 15px;">Subir</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // Test without type="module"
-    try {
-      document.body.style.border = '10px solid green';
-      alert('Script de diagnóstico (v4) ejecutado. Deberías ver un borde verde.');
-    } catch (e) {
-      alert('Error en el script de diagnóstico: ' + e.message);
+    // --- Constants ---
+    const CATBOX_API = 'https://catbox.moe/user/api.php';
+    const API_GET_GALLERY = './api/get-gallery.js';
+    const API_ADD_ENTRY = './api/add-entry.js';
+
+    // --- Element References ---
+    const gallery = document.getElementById('gallery');
+    const empty = document.getElementById('empty');
+    const copyLink = document.getElementById('copyLink');
+    const openUploadModalBtn = document.getElementById('openUploadModal');
+    const uploadModal = document.getElementById('uploadModal');
+    const closeUploadModalBtn = document.getElementById('closeUploadModal');
+    
+    const dz = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressEl = document.getElementById('progress');
+    const bar = progressEl.querySelector('div');
+    const queueStatus = document.getElementById('queue-status');
+
+    let queue = [];
+
+    function main() {
+      try {
+        setupEventListeners();
+        loadGallery();
+      } catch (error) {
+        console.error("Error during script initialization:", error);
+        alert("Ocurrió un error crítico al cargar la página. Por favor, recarga.");
+      }
     }
+
+    function setupEventListeners() {
+      openUploadModalBtn.addEventListener('click', () => uploadModal.classList.add('visible'));
+      closeUploadModalBtn.addEventListener('click', () => uploadModal.classList.remove('visible'));
+      uploadModal.addEventListener('click', (e) => {
+        if (e.target === uploadModal) {
+          uploadModal.classList.remove('visible');
+        }
+      });
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragging'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragging'));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dz.classList.remove('dragging');
+        addToQueue(Array.from(e.dataTransfer.files));
+      });
+      fileInput.addEventListener('change', (e) => addToQueue(Array.from(e.target.files)));
+      uploadBtn.addEventListener('click', () => uploadAll());
+      copyLink.addEventListener('click', copyPublicLink);
+    }
+
+    function addToQueue(files) {
+      queue.push(...files);
+      renderQueueHint();
+    }
+
+    function renderQueueHint() {
+      queueStatus.textContent = queue.length ? `${queue.length} archivo(s) en cola` : '';
+      uploadBtn.style.display = queue.length ? 'inline-flex' : 'none';
+    }
+
+    async function copyPublicLink() {
+      await navigator.clipboard.writeText(location.href.replace(location.hash, ''));
+      copyLink.textContent = '¡Copiado!';
+      setTimeout(() => copyLink.textContent = 'Copiar enlace público', 1200);
+    }
+
+    async function uploadToCatbox(file) {
+      const formData = new FormData();
+      formData.append('reqtype', 'fileupload');
+      formData.append('fileToUpload', file);
+      const response = await fetch(CATBOX_API, { method: 'POST', body: formData });
+      if (!response.ok) throw new Error(`Catbox upload failed: ${response.statusText}`);
+      const url = await response.text();
+      if (!url.startsWith('https://')) throw new Error(`Invalid response from Catbox: ${url}`);
+      return url;
+    }
+
+    async function addGalleryEntry(entry) {
+      const response = await fetch(API_ADD_ENTRY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (!response.ok) throw new Error(`Failed to add gallery entry: ${await response.text()}`);
+      return await response.json();
+    }
+
+    async function uploadAll() {
+      if (!queue.length) return;
+      progressEl.hidden = false;
+      bar.style.width = '0%';
+      const totalFiles = queue.length;
+      uploadBtn.disabled = true;
+
+      for (let i = 0; i < totalFiles; i++) {
+        const file = queue[i];
+        try {
+          const catboxUrl = await uploadToCatbox(file);
+          await addGalleryEntry({
+            url: catboxUrl,
+            pathname: file.name,
+            contentType: file.type,
+            size: file.size,
+          });
+          bar.style.width = `${((i + 1) / totalFiles) * 100}%`;
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+          alert(`Error subiendo "${file.name}": ${error.message}`);
+          break;
+        }
+      }
+
+      queue = [];
+      renderQueueHint();
+      uploadBtn.disabled = false;
+      setTimeout(() => { 
+        progressEl.hidden = true; 
+        bar.style.width = '0%';
+        uploadModal.classList.remove('visible');
+      }, 800);
+      await loadGallery();
+    }
+
+    async function loadGallery() {
+      try {
+        const response = await fetch(API_GET_GALLERY);
+        if (!response.ok) throw new Error('Could not fetch gallery.');
+        const entries = await response.json();
+        gallery.innerHTML = '';
+        empty.hidden = entries.length > 0;
+        entries.forEach(entry => gallery.appendChild(createTile(entry)));
+      } catch (error) {
+        console.error('Error loading gallery:', error);
+        alert('No se pudo cargar la galería. Comprueba la consola para más detalles.');
+      }
+    }
+    
+    function createTile(entry) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        let media;
+        if (entry.contentType.startsWith('image/')) {
+            media = document.createElement('img');
+            media.src = entry.url;
+        } else if (entry.contentType.startsWith('video/')) {
+            media = document.createElement('video');
+            media.src = entry.url;
+            media.controls = true;
+            media.playsInline = true;
+        }
+        if (media) {
+            media.alt = entry.pathname;
+            tile.appendChild(media);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const metaTop = document.createElement('div');
+        metaTop.className = 'meta-top';
+        const note = document.createElement('span');
+        note.className = 'note';
+        note.textContent = entry.pathname;
+        note.title = entry.pathname;
+        const size = document.createElement('span');
+        size.className = 'size';
+        size.textContent = (entry.size / 1024 / 1024).toFixed(1) + ' MB';
+        const date = document.createElement('span');
+        date.className = 'date';
+        date.textContent = new Date(entry.uploadedAt).toLocaleDateString();
+        metaTop.appendChild(note);
+        metaTop.appendChild(date);
+        metaTop.appendChild(size);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = entry.url;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.textContent = 'Descargar';
+        meta.appendChild(metaTop);
+        meta.appendChild(downloadLink);
+        tile.appendChild(meta);
+        return tile;
+    }
+
+    main();
   </script>
 </body>
 </html>
