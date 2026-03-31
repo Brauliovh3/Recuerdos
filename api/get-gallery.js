@@ -1,5 +1,10 @@
 import { blob } from '@vercel/blob';
 
+const BLOB_TOKEN =
+  process.env.BLOB_READ_WRITE_TOKEN ??
+  process.env.depool_READ_WRITE_TOKEN ??
+  process.env.DEPPOOL_READ_WRITE_TOKEN;
+
 export const config = {
   runtime: 'nodejs',
 };
@@ -10,7 +15,12 @@ export default async function handler(request) {
   }
 
   try {
-    const galleryBlob = await blob.get('gallery.json');
+    if (!BLOB_TOKEN) {
+      throw new Error(
+        'Blob read-write token is missing. Set BLOB_READ_WRITE_TOKEN (or depool_READ_WRITE_TOKEN/DEPPOOL_READ_WRITE_TOKEN).'
+      );
+    }
+    const galleryBlob = await blob.get('gallery.json', { token: BLOB_TOKEN });
     const galleryData = await galleryBlob.json();
     return new Response(JSON.stringify(galleryData), {
       headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,10 @@
 import { blob } from '@vercel/blob';
 
+const BLOB_TOKEN =
+  process.env.BLOB_READ_WRITE_TOKEN ??
+  process.env.depool_READ_WRITE_TOKEN ??
+  process.env.DEPPOOL_READ_WRITE_TOKEN;
+
 export const config = {
   runtime: 'nodejs',
 };
@@ -13,26 +18,32 @@ export default async function handler(request) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  try {
-    const { url, contentType, size, pathname } = await request.json();
-
-    // Basic validation
-    if (!url || !contentType || !size || !pathname) {
-      return new Response('Bad Request: Missing required fields.', { status: 400 });
-    }
-
-    let galleryData = [];
     try {
-      const galleryBlob = await blob.get('gallery.json');
-      galleryData = await galleryBlob.json();
-    } catch (error) {
-      if (error.code !== 'NOT_FOUND') {
-        throw error; // Re-throw if it's not a 'not found' error
-      }
-      // If gallery.json does not exist, we start with an empty array.
-    }
+      const { url, contentType, size, pathname } = await request.json();
 
-    // Add new entry
+      // Basic validation
+      if (!url || !contentType || !size || !pathname) {
+        return new Response('Bad Request: Missing required fields.', { status: 400 });
+      }
+
+      if (!BLOB_TOKEN) {
+        throw new Error(
+          'Blob read-write token is missing. Set BLOB_READ_WRITE_TOKEN (or depool_READ_WRITE_TOKEN/DEPPOOL_READ_WRITE_TOKEN).'
+        );
+      }
+
+      let galleryData = [];
+      try {
+        const galleryBlob = await blob.get('gallery.json', { token: BLOB_TOKEN });
+        galleryData = await galleryBlob.json();
+      } catch (error) {
+        if (error.code !== 'NOT_FOUND') {
+          throw error; // Re-throw if it's not a 'not found' error
+        }
+        // If gallery.json does not exist, we start with an empty array.
+      }
+
+      // Add new entry
     const newEntry = {
       url,
       pathname,
@@ -46,6 +57,7 @@ export default async function handler(request) {
     await blob.put('gallery.json', JSON.stringify(galleryData), {
       access: 'public', // Or 'private' if you want to restrict access
       addRandomSuffix: false, // We want a predictable file name
+      token: BLOB_TOKEN,
     });
 
     return new Response(JSON.stringify({ success: true, entry: newEntry }), {
